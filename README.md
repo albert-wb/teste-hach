@@ -119,6 +119,17 @@ Tema: cinzas neutros puros, marcas em L nos cantos dos cartões, raio de 2 px, s
 são variáveis CSS (`--nivel-normal`, `--nivel-atencao`, `--nivel-elevado`, `--nivel-critico` em `src/index.css`); o time pode
 trocá-las sem tocar nos componentes.
 
+## Publicação no GitHub Pages
+
+O GitHub Pages não executa código TypeScript: ele precisa receber a pasta `dist/` gerada pelo build. Por isso o repositório
+tem o workflow `.github/workflows/pages.yml`, que roda `npm ci`, `npm test` e `npm run build` e publica a pasta `dist/`.
+O `vite.config.ts` usa `base: './'`, então os caminhos dos arquivos são relativos e funcionam em qualquer subpasta
+(por exemplo `https://usuario.github.io/repositorio/`).
+
+Para ligar a publicação, em **Settings → Pages → Build and deployment → Source**, escolha **GitHub Actions**. Se a opção
+ficar em "Deploy from a branch", o Pages serve o código-fonte (`index.html` apontando para `/src/main.tsx`) e a página
+aparece em branco.
+
 ## Branches
 
 O repositório tem 5 branches individuais, todas criadas a partir do mesmo commit da `main`: `Albert`, `Felipe`, `Lais`,
