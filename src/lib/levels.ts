@@ -9,7 +9,7 @@ export const LEVELS = [
 
 export const RED = 'var(--nivel-critico)';
 export const levelColor = (l: LevelIndex): string => LEVELS[l].color;
-/** tinta do nível: 30% no CRÍTICO (vermelho), 12% nos cinzas */
-export const levelTint = (l: LevelIndex, pct = l === 3 ? 30 : 12): string => `color-mix(in srgb, ${LEVELS[l].color} ${pct}%, transparent)`;
+/** tinta do nível: 34% no CRÍTICO, 22% nos demais */
+export const levelTint = (l: LevelIndex, pct = l === 3 ? 34 : 22): string => `color-mix(in srgb, ${LEVELS[l].color} ${pct}%, transparent)`;
 /** id do <pattern> do mapa para o nível (normal não tem padrão) */
 export const levelPatternId = (l: LevelIndex): string | null => (l === 0 ? null : `pat-nivel-${LEVELS[l].key}`);

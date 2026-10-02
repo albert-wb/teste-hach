@@ -26,7 +26,7 @@ export function TopBar() {
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2.5">
-        <div className="pill" role="status" style={{ border: '1px dashed #3a3a3a', height: 24, fontWeight: 500 }}>
+        <div className="pill" role="status" style={{ border: '1px dashed #3a4859', height: 24, fontWeight: 500 }}>
           <span className="h-[6px] w-[6px] rounded-full" style={{ background: 'var(--ponto-demo)' }} aria-hidden="true" />
           MODO DEMONSTRAÇÃO — DADOS SIMULADOS
         </div>
@@ -59,7 +59,7 @@ export function TopBar() {
           onClick={focusAlerts}
         >
           <Icon name="bell" size={16} />
-          {emitted > 0 && <span className="absolute right-[5px] top-[5px] h-[7px] w-[7px] rounded-full bg-t1" aria-hidden="true" />}
+          {emitted > 0 && <span className="absolute right-[5px] top-[5px] h-[7px] w-[7px] rounded-full bg-[#4c9aff]" aria-hidden="true" />}
         </button>
 
         <span className="flex h-8 w-8 items-center justify-center rounded-full border border-line2 text-[11px] font-semibold" aria-label="Perfil de demonstração: DC">DC</span>

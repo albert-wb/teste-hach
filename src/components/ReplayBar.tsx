@@ -28,7 +28,7 @@ export function ReplayBar() {
         </div>
         <div className="relative mx-[6px] h-[14px]" aria-hidden="true">
           {Array.from({ length: STEP_COUNT }, (_, t) => (
-            <button key={t} tabIndex={-1} onClick={() => setStep(t)} className="num absolute -translate-x-1/2 text-[10.5px] leading-[14px]" style={{ left: `${(t / (STEP_COUNT - 1)) * 100}%`, color: t === step ? '#f5f5f5' : '#a3a3a3', fontWeight: t === step ? 600 : 400 }}>
+            <button key={t} tabIndex={-1} onClick={() => setStep(t)} className="num absolute -translate-x-1/2 text-[10.5px] leading-[14px]" style={{ left: `${(t / (STEP_COUNT - 1)) * 100}%`, color: t === step ? '#f5f5f5' : '#9fb0c3', fontWeight: t === step ? 600 : 400 }}>
               {stepClock(t)}
             </button>
           ))}

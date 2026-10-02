@@ -15,6 +15,11 @@ const FACTOR_PATTERN: Record<FactorKey, string> = {
   demanda: 'pat-diag-grossa', crescimento: 'pat-dots', clima: 'pat-horizontal', recursos: 'pat-grade', vulnerabilidade: 'pat-vertical', infra: 'pat-diag-fina'
 };
 
+/** Cor de cada fator (a legenda e a rosca usam a mesma). O padrão por cima garante que não dependa só da cor. */
+const FACTOR_COLOR: Record<FactorKey, string> = {
+  demanda: '#ff7a59', crescimento: '#f2c14e', clima: '#4aa8e8', recursos: '#a78bfa', vulnerabilidade: '#2dd4bf', infra: '#f472b6'
+};
+
 interface Row { key: FactorKey; int: number; max: number; idx: number }
 
 function Donut({ rows, score, level }: { rows: Row[]; score: number; level: 0 | 1 | 2 | 3 }) {
@@ -38,8 +43,8 @@ function Donut({ rows, score, level }: { rows: Row[]; score: number; level: 0 | 
       <svg width={size} height={size} role="img" aria-label={`Composição da pressão: ${rows.map((x) => `${x.int} pontos de ${x.max}`).join(', ')}`}>
         {slices.map((s) => (
           <g key={s.key}>
-            <path d={s.d} fill="#1d1d1d" fillRule="evenodd" />
-            <path d={s.d} fill={`url(#${FACTOR_PATTERN[s.key]})`} fillRule="evenodd" stroke="#101010" strokeWidth="2" />
+            <path d={s.d} fill={FACTOR_COLOR[s.key]} fillOpacity="0.62" fillRule="evenodd" />
+            <path d={s.d} fill={`url(#${FACTOR_PATTERN[s.key]})`} fillRule="evenodd" stroke="#0f151d" strokeWidth="2" />
           </g>
         ))}
       </svg>
@@ -79,7 +84,7 @@ export function SelectedRegion() {
     : `${p.teamsFree} de ${p.teamsTotal} equipes e refúgios disponíveis`;
 
   return (
-    <Card className="flex min-h-0 flex-col" label="Região selecionada" style={{ flex: '44 1 0%' }}>
+    <Card className="flex min-h-0 flex-col" label="Região selecionada" style={{ flex: '40 1 0%' }}>
       <div className="flex h-[76px] flex-none items-center gap-3 border-b border-line px-4">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
@@ -109,7 +114,7 @@ export function SelectedRegion() {
           <>
             <span className="flex-none text-[12px] text-t2">Tempo até saturação</span>
             <span className="num flex-none whitespace-nowrap text-[14px] font-semibold">~{Math.max(1, Math.round(eta))} min</span>
-            <div className="flex min-w-0 flex-1"><DotBar value={filled} max={SEG} segments={SEG} color="#f5f5f5" /></div>
+            <div className="flex min-w-0 flex-1"><DotBar value={filled} max={SEG} segments={SEG} color={typeof eta === 'number' && eta <= 5 ? 'var(--nivel-critico)' : typeof eta === 'number' && eta <= 10 ? 'var(--nivel-elevado)' : 'var(--nivel-atencao)'} /></div>
           </>
         )}
         <span className="ml-auto flex-none text-[10.5px] leading-3 text-t3">Estimativa por tendência;<br />não validada.</span>
@@ -120,7 +125,7 @@ export function SelectedRegion() {
         <ul className="m-0 flex min-w-0 flex-1 list-none flex-col gap-2.5 p-0" aria-label="Pontos por fator, do maior para o menor">
           {rows.map((r) => (
             <li key={r.key} className="flex items-center gap-2.5">
-              <svg width="14" height="14" aria-hidden="true" className="flex-none"><rect x="0.5" y="0.5" width="13" height="13" fill="#1d1d1d" stroke="#3a3a3a" /><rect x="0.5" y="0.5" width="13" height="13" fill={`url(#${FACTOR_PATTERN[r.key]})`} /></svg>
+              <svg width="14" height="14" aria-hidden="true" className="flex-none"><rect x="0.5" y="0.5" width="13" height="13" fill={FACTOR_COLOR[r.key]} fillOpacity="0.62" stroke={FACTOR_COLOR[r.key]} /><rect x="0.5" y="0.5" width="13" height="13" fill={`url(#${FACTOR_PATTERN[r.key]})`} /></svg>
               <span className="min-w-0 flex-1 truncate text-[13px]">{names[r.key]}</span>
               <span className="num w-[24px] flex-none text-right text-[14px] font-semibold">{r.int}</span>
               <span className="num w-[42px] flex-none text-[11px] text-t3">de {r.max}</span>

@@ -20,7 +20,7 @@ function Drawer({ title, sub, children, onClose }: { title: string; sub?: string
   }, []);
   return (
     <div className="absolute inset-0 z-40 flex justify-end" style={{ background: 'rgba(0,0,0,0.55)' }} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-label={title} className="drawer card flex h-full w-[420px] flex-col" style={{ borderRadius: 0, background: '#101010' }}>
+      <aside role="dialog" aria-modal="true" aria-label={title} className="drawer card flex h-full w-[420px] flex-col" style={{ borderRadius: 0, background: '#0f151d' }}>
         <header className="flex flex-none items-center gap-2 border-b border-line px-4 py-3">
           <div className="flex min-w-0 flex-col">
             <h2 className="m-0 text-[15px] font-semibold leading-5">{title}</h2>
@@ -123,7 +123,7 @@ export function WhatIfDialog() {
   const cards = [{ t: 'Antes', pr: before }, { t: 'Depois', pr: wi }];
   return (
     <div className="absolute inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onPointerDown={(e) => { if (e.target === e.currentTarget) setWhatIf(false); }}>
-      <div role="dialog" aria-modal="true" aria-label="E se mais uma equipe" className="card flex w-[460px] flex-col gap-3 p-4" style={{ background: '#161616' }}>
+      <div role="dialog" aria-modal="true" aria-label="E se mais uma equipe" className="card flex w-[460px] flex-col gap-3 p-4" style={{ background: '#161e29' }}>
         <i className="lm lm-tl" /><i className="lm lm-tr" /><i className="lm lm-bl" /><i className="lm lm-br" />
         <div className="flex items-center justify-between">
           <b className="text-[14px] font-semibold">E se +1 equipe? · Região {region.name}</b>
@@ -142,7 +142,7 @@ export function WhatIfDialog() {
 
 function Side({ t, pr, etaTxt, strong }: { t: string; pr: { score: number; level: 0 | 1 | 2 | 3; etaMinutes: number | 'saturado' | null }; etaTxt: (e: number | 'saturado' | null) => string; strong?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 border p-3" style={{ borderRadius: 2, borderColor: strong ? '#f5f5f5' : '#262626' }}>
+    <div className="flex flex-col gap-1 border p-3" style={{ borderRadius: 2, borderColor: strong ? '#f5f5f5' : '#26313f' }}>
       <span className="t-micro">{t}</span>
       <span className="flex items-baseline gap-2"><span className="t-hero">{pr.score}</span><LevelIcon level={pr.level} size={12} /><span className="t-level text-[10px]">{LEVELS[pr.level].name}</span></span>
       <span className="text-[11px] text-t2">Tempo até saturação: <span className="num text-t1">{etaTxt(pr.etaMinutes)}</span></span>

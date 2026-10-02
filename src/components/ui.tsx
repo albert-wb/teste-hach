@@ -18,7 +18,7 @@ export const Card = forwardRef<HTMLElement, { className?: string; style?: CSSPro
 export function CardHead({ icon, title, sub, right }: { icon: IconName; title: string; sub?: string; right?: ReactNode }) {
   return (
     <header className="card-head">
-      <Icon name={icon} size={16} className="text-t2" />
+      <Icon name={icon} size={16} className="text-[#9cc7ff]" />
       <div className="flex min-w-0 flex-col justify-center whitespace-nowrap">
         <h2 className="t-title m-0 text-[12px]">{title}</h2>
         {sub && <span className="text-[10px] leading-3 text-t3">{sub}</span>}
@@ -30,7 +30,7 @@ export function CardHead({ icon, title, sub, right }: { icon: IconName; title: s
 
 /** Forma do nível: círculo vazado, triângulo, losango, octógono preenchido. Cor + forma (nunca só cor). */
 export function LevelIcon({ level, size = 12, color, onWhite }: { level: LevelIndex; size?: number; color?: string; onWhite?: boolean }) {
-  const c = color ?? (onWhite && level !== 3 ? '#0a0a0a' : levelColor(level));
+  const c = color ?? (onWhite && level !== 3 ? '#0a0e14' : levelColor(level));
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" style={{ flex: 'none', overflow: 'visible' }}>
       {level === 0 && <circle cx="5" cy="5" r="3.9" fill="none" stroke={c} strokeWidth="1.6" />}
@@ -52,20 +52,23 @@ export function LevelPill({ level }: { level: LevelIndex }) {
 }
 
 /** Barra pontilhada: `segments` quadradinhos de 4×4 px espalhados na largura. Preenchidos = proporcional a value/max. */
-export function DotBar({ value, max, segments = 20, color = '#f5f5f5', className = '' }: { value: number; max: number; segments?: number; color?: string; className?: string }) {
+export function DotBar({ value, max, segments = 20, color = 'var(--accent)', className = '' }: { value: number; max: number; segments?: number; color?: string; className?: string }) {
   let filled = Math.round((value / max) * segments);
   if (value > 0 && filled === 0) filled = 1;
   return (
     <span className={`flex w-full justify-between ${className}`} role="img" aria-label={`${filled} de ${segments} segmentos`}>
       {Array.from({ length: segments }, (_, i) => (
-        <span key={i} style={{ width: 4, height: 4, borderRadius: 1, background: i < filled ? color : '#333333' }} />
+        <span key={i} style={{ width: 4, height: 4, borderRadius: 1, background: i < filled ? color : '#344255' }} />
       ))}
     </span>
   );
 }
 
-/** Variação: a seta mostra a direção numérica; só há dois tons de cinza (sem verde nem vermelho). */
-export const deltaColor = (delta: number | null): string => (delta ? '#f5f5f5' : '#a3a3a3');
+/** Variação: a seta mostra a direção; a cor diz se é bom ou ruim (por padrão, subir é ruim: pressão, chuva, ocorrências). */
+export const deltaColor = (delta: number | null, upIsBad = true): string => {
+  if (!delta) return '#9fb0c3';
+  return (delta > 0) === upIsBad ? 'var(--nivel-elevado)' : 'var(--nivel-normal)';
+};
 
 export function Arrow({ delta, size = 12 }: { delta: number; size?: number }) {
   if (delta > 0) return <Icon name="arrowUp" size={size} strokeWidth={2} />;
@@ -88,7 +91,7 @@ export function TeamSquares({ total, free, size = 12, gap = 3 }: { total: number
   return (
     <span className="flex" style={{ gap }} role="img" aria-label={`${free} de ${total} equipes livres`}>
       {Array.from({ length: total }, (_, i) => (
-        <span key={i} style={{ width: size, height: size, border: '1.5px solid #f5f5f5', borderRadius: 1, background: i < total - free ? '#f5f5f5' : 'transparent' }} />
+        <span key={i} style={{ width: size, height: size, border: '1.5px solid var(--accent-text)', borderRadius: 1, background: i < total - free ? 'var(--accent-text)' : 'transparent' }} />
       ))}
     </span>
   );

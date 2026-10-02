@@ -1,7 +1,8 @@
 /**
  * Dados do mapa: lê franca.geo.json e zones.geo.json (estáticos), projeta e prepara tudo que o SVG precisa.
- * franca.geo.json vem de scripts/fetch-osm.mjs (OpenStreetMap, projecao = "wgs84") ou, na falta de rede,
- * de scripts/make-approx.mjs (geometria APROXIMADA, projecao = "local-km"). Sem chamadas de rede em tempo de execução.
+ * franca.geo.json vem de scripts/make-map.mjs (contorno oficial do município, IBGE, projecao = "wgs84").
+ * Camadas opcionais (vias, córregos, parques, água, ferrovia, bairros) aparecem se o arquivo tiver essas feições.
+ * Sem chamadas de rede em tempo de execução.
  */
 import franca from './franca.geo.json';
 import zonesJson from './zones.geo.json';
@@ -41,12 +42,17 @@ export interface ZoneGeo {
 }
 export interface MapData {
   approximate: boolean;
-  source: 'osm' | 'aproximada';
+  source: 'osm' | 'ibge' | 'aproximada';
   attribution: string | null;
   note: string;
   urban: Multi;
-  roads: Array<{ main: boolean; pts: Pt[] }>;
-  streams: Array<{ name: string | null; pts: Pt[] }>;
+  /** contorno do município inteiro, só como contexto */
+  context: Multi;
+  roads: Array<{ classe: 'principal' | 'secundaria' | 'terciaria'; name: string | null; pts: Pt[] }>;
+  rails: Pt[][];
+  streams: Array<{ name: string | null; river: boolean; pts: Pt[] }>;
+  parks: Multi;
+  water: Multi;
   hoods: Place[];
   centro: Place;
   zones: Record<RegionId, ZoneGeo>;
@@ -71,13 +77,20 @@ function build(): MapData {
     };
   }
   const roads = fc.features.filter((f) => f.properties.tipo === 'via').map((f) => ({
-    main: f.properties.classe === 'principal',
-    pts: (f.geometry.coordinates as Pt[]).map(project)
-  }));
-  const streams = fc.features.filter((f) => f.properties.tipo === 'corrego').map((f) => ({
+    classe: (f.properties.classe as 'principal' | 'secundaria' | 'terciaria') ?? 'secundaria',
     name: (f.properties.nome as string | null) ?? null,
     pts: (f.geometry.coordinates as Pt[]).map(project)
   }));
+  const rails = fc.features.filter((f) => f.properties.tipo === 'ferrovia').map((f) => (f.geometry.coordinates as Pt[]).map(project));
+  const streams = fc.features.filter((f) => f.properties.tipo === 'corrego').map((f) => ({
+    name: (f.properties.nome as string | null) ?? null,
+    river: f.properties.rio === true,
+    pts: (f.geometry.coordinates as Pt[]).map(project)
+  }));
+  const polysOf = (tipo: string): Multi => projMulti(fc.features.filter((f) => f.properties.tipo === tipo).flatMap((f) => toMulti(f.geometry)));
+  const context = polysOf('municipio');
+  const parks = polysOf('parque');
+  const water = polysOf('agua');
   const hoods = fc.features.filter((f) => f.properties.tipo === 'bairro').map((f) => ({
     name: String(f.properties.nome), p: project(f.geometry.coordinates as Pt)
   }));
@@ -85,13 +98,13 @@ function build(): MapData {
   const centro: Place = cf
     ? { name: String(cf.properties.nome), p: project(cf.geometry.coordinates as Pt) }
     : { name: 'Centro', p: centroid(urban) };
-  const approximate = fc.meta.fonte !== 'osm';
+  const approximate = fc.meta.fonte === 'aproximada';
   return {
     approximate,
-    source: approximate ? 'aproximada' : 'osm',
-    attribution: approximate ? null : String(fc.meta.atribuicao ?? '© OpenStreetMap contributors'),
+    source: approximate ? 'aproximada' : fc.meta.fonte === 'osm' ? 'osm' : 'ibge',
+    attribution: approximate ? null : String(fc.meta.atribuicao ?? ''),
     note: String(fc.meta.rotulo ?? ''),
-    urban, roads, streams, hoods, centro, zones,
+    urban, context, roads, rails, streams, parks, water, hoods, centro, zones,
     cityCenter: centroid(urban),
     bbox: bbox(multiPoints(urban))
   };

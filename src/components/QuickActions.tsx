@@ -17,7 +17,7 @@ export function QuickActions() {
         {items.map((it) => (
           <li key={it.title} className="min-h-0 flex-1 border-b border-line last:border-b-0">
             <button onClick={it.on} aria-haspopup={it.haspopup ? 'dialog' : undefined} className="row-hover flex h-full w-full items-center gap-3 px-4 text-left">
-              <Icon name={it.icon} size={16} className="flex-none text-t1" />
+              <Icon name={it.icon} size={16} className="flex-none text-[#9cc7ff]" />
               <span className="flex min-w-0 flex-1 flex-col"><span className="text-[13px] font-medium leading-[18px]">{it.title}</span><span className="truncate text-[12px] leading-4 text-t2">{it.sub}</span></span>
               <Icon name="right" size={14} className="flex-none text-t2" />
             </button>

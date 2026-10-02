@@ -6,7 +6,7 @@ Ele responde a uma pergunta: **em qual região a capacidade de resposta pode ser
 > **MODO DEMONSTRAÇÃO — DADOS SIMULADOS.**
 > Nenhum número do painel vem de sensores, de órgãos públicos ou de pessoas reais. As ocorrências, as equipes, a chuva e o
 > índice de calor são gerados por cenários determinísticos (`src/data/scenarios.ts`). A estimativa de tempo até a saturação
-> é uma extrapolação de tendência e não foi validada. Os limites das zonas do mapa são aproximados e não são oficiais.
+> é uma extrapolação de tendência e não foi validada. As zonas do mapa são esquemáticas e não são oficiais.
 
 ## Como rodar
 
@@ -59,7 +59,7 @@ As funções puras ficam em `src/engine/pressure.ts`, sem dependência de UI.
 | Vulnerabilidade | 10 × vulnerabilidade da região (0 a 1) | 10 |
 | Infraestrutura crítica | 5 × mín(itens críticos ÷ 2; 1) | 5 |
 
-- **Níveis:** NORMAL 0–25, ATENÇÃO 26–50, ELEVADO 51–75, CRÍTICO 76–100. Cada nível tem ícone, padrão, nome e cor (nunca só cor). O vermelho é usado só em CRÍTICO, saturação e capacidade esgotada.
+- **Níveis:** NORMAL 0–25, ATENÇÃO 26–50, ELEVADO 51–75, CRÍTICO 76–100. Cada nível tem ícone, padrão, nome e cor (nunca só cor): NORMAL verde, ATENÇÃO âmbar, ELEVADO laranja e CRÍTICO vermelho. O vermelho também marca saturação e capacidade esgotada.
 - **Cidade:** 0,5 × a maior região + 0,5 × a média das regiões.
 - **Tempo até saturação:** sem equipes livres, "saturado"; se a demanda cresce, (equipes livres ÷ crescimento) × 10 min; senão, sem tendência.
 - **Alerta:** pressão de 45 ou mais e tempo até saturação de 15 min ou menos.
@@ -84,23 +84,22 @@ poderá implementar a mesma interface sem mexer no engine.
 
 O mapa é SVG com dados estáticos, em `src/data/`:
 
-- `franca.geo.json`: mancha urbana, vias, córregos e nomes de bairros.
-- `zones.geo.json`: as 4 zonas (Norte, Centro, Leste, Sul). **São editáveis pelo time**; cada zona é um MultiPolygon.
+- `franca-limite.geo.json`: **contorno oficial do município de Franca (IBGE, malha municipal)**, copiado de
+  [tbrugz/geodata-br](https://github.com/tbrugz/geodata-br).
+- `franca.geo.json`: gerado por `npm run make-map`. Tem o contorno do município (desenhado em tracejado, só como contexto),
+  a **área de análise** (município ∩ círculo de 11 km em volta do centro; é onde ficam as zonas) e o ponto central.
+- `zones.geo.json`: as 4 zonas (Norte, Centro, Leste, Sul), geradas por `npm run make-zones`. **São editáveis pelo time**;
+  cada zona é um MultiPolygon.
 
-**Atenção: o `franca.geo.json` que está no repositório é uma geometria aproximada**, gerada por `scripts/make-approx.mjs`
-porque o ambiente em que o protótipo foi construído não tinha acesso ao OpenStreetMap. Ele é rotulado como
-"geometria aproximada" no próprio mapa e não tem vias nem córregos. Para trazer a geometria real, em uma máquina com internet:
+**O que o mapa não tem:** vias, córregos, bairros e a mancha urbana de verdade. O ambiente em que o protótipo foi feito só
+alcançava o GitHub (o OpenStreetMap e os serviços do IBGE estavam bloqueados) e a tentativa de baixar o OSM pelo GitHub
+Actions não obteve resposta do servidor. A divisão em zonas é esquemática (círculo central + setores) e **não é oficial**.
+O mapa mostra isso no rodapé. O raio da área de análise e o ponto central ficam em `scripts/make-map.mjs`.
 
-```bash
-npm run fetch-osm    # Nominatim + Overpass: gera src/data/franca.geo.json (mancha urbana, vias, córregos, bairros)
-npm run make-zones   # recalcula as 4 zonas a partir da nova mancha
-```
-
-Depois confira o resultado no mapa e ajuste `zones.geo.json` se quiser. Se um córrego (Cubatão, Bagres) não for encontrado
-no OSM, o script omite o traçado dele. Os ícones de infraestrutura crítica e de refúgios são ilustrativos, não locais reais.
-
-Dados do mapa, quando vierem do OpenStreetMap: © OpenStreetMap contributors, licença ODbL
-(<https://www.openstreetmap.org/copyright>). A atribuição aparece no rodapé do mapa.
+Para um mapa mais detalhado: troque `zones.geo.json` por zonas oficiais (por exemplo, da Defesa Civil) e, se tiver vias,
+córregos ou parques, acrescente-os em `franca.geo.json` como feições `via` (`classe`: `principal`, `secundaria` ou
+`terciaria`), `corrego`, `parque`, `agua`, `ferrovia` e `bairro`; o mapa desenha essas camadas sozinho. Os ícones de
+infraestrutura crítica e de refúgios são ilustrativos, não locais reais.
 
 ## Estrutura
 
@@ -112,12 +111,13 @@ src/
   components/   um arquivo por cartão: TopBar, Sidebar, MapCard, SelectedRegion, RegionsRanking, AlertsFeed,
                 HeatmapCard, QuickActions, ReplayBar, Panels (Como funciona e "E se +1 equipe?")
   lib/          geo.ts, levels.ts, hooks.ts, format.ts
-scripts/        fetch-osm.mjs, make-zones.mjs, make-approx.mjs, geo-utils.mjs
+scripts/        make-map.mjs, make-zones.mjs, geo-utils.mjs
 ```
 
-Tema: cinzas neutros puros, marcas em L nos cantos dos cartões, raio de 2 px, sem gradientes nem sombras. As cores dos níveis
-são variáveis CSS (`--nivel-normal`, `--nivel-atencao`, `--nivel-elevado`, `--nivel-critico` em `src/index.css`); o time pode
-trocá-las sem tocar nos componentes.
+Tema: fundo escuro azul-ardósia, azul de destaque (botões, seleção, abas), cores de semáforo por nível, cores por fator na rosca
+e degradê azul→vermelho no mapa de calor. Marcas em L nos cantos dos cartões, raio de 2 px, sem gradientes nem sombras nos cartões.
+As cores são variáveis CSS (`--nivel-normal`, `--nivel-atencao`, `--nivel-elevado`, `--nivel-critico`, `--accent` em
+`src/index.css`); o time pode trocá-las sem tocar nos componentes.
 
 ## Publicação no GitHub Pages
 

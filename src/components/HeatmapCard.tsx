@@ -6,11 +6,17 @@ import { RED } from '../lib/levels';
 import { useApp } from '../state/AppContext';
 import { Card, CardHead } from './ui';
 
-/** 0 → #1A1A1A, 100 → #F0F0F0, em escala de cinza. */
+/** Degradê de 0 a 100: azul-escuro → verde-azulado → âmbar → laranja → vermelho. */
+const STOPS: Array<[number, [number, number, number]]> = [
+  [0, [0x17, 0x30, 0x4a]], [25, [0x2a, 0x8a, 0x82]], [50, [0xe0, 0xb4, 0x3c]], [75, [0xee, 0x7f, 0x35]], [100, [0xff, 0x4d, 0x52]]
+];
 const shade = (score: number): string => {
-  const v = Math.round(0x1a + ((0xf0 - 0x1a) * Math.min(Math.max(score, 0), 100)) / 100);
-  const h = v.toString(16).padStart(2, '0');
-  return `#${h}${h}${h}`;
+  const s = Math.min(Math.max(score, 0), 100);
+  let i = 0;
+  while (i < STOPS.length - 2 && s > STOPS[i + 1][0]) i++;
+  const [a, ca] = STOPS[i], [b, cb] = STOPS[i + 1];
+  const t = (s - a) / (b - a);
+  return `rgb(${ca.map((v, k) => Math.round(v + (cb[k] - v) * t)).join(',')})`;
 };
 
 type RowKey = RegionId | 'cidade';
@@ -37,11 +43,11 @@ export function HeatmapCard() {
           {Array.from({ length: STEP_COUNT }, (_, t) => <span key={t} className="flex items-start justify-center">{t === step && <span className="mt-0 block h-[3px] w-[18px] bg-t1" aria-hidden="true" />}</span>)}
           {rows.map((r) => (
             <div key={r.key} className="contents" role="row">
-              <span className="flex items-center text-[11px]" style={{ color: r.key === regionId ? '#f5f5f5' : '#a3a3a3', fontWeight: r.key === regionId ? 600 : 400 }}>{r.name}</span>
+              <span className="flex items-center text-[11px]" style={{ color: r.key === regionId ? '#f5f5f5' : '#9fb0c3', fontWeight: r.key === regionId ? 600 : 400 }}>{r.name}</span>
               {r.values.map((v, t) => {
                 const future = t > step;
                 const crit = !future && v >= 76;
-                if (future) return <span key={t} style={{ border: '1px dashed #3a3a3a', borderRadius: 2 }} aria-hidden="true" />;
+                if (future) return <span key={t} style={{ border: '1px dashed #3a4859', borderRadius: 2 }} aria-hidden="true" />;
                 return (
                   <button
                     key={t} aria-label={`${r.name}, ${stepClock(t)}, pressão ${v}${crit ? ', nível crítico' : ''}`} aria-pressed={r.key === regionId && t === step}
@@ -50,19 +56,19 @@ export function HeatmapCard() {
                     style={{ background: shade(v), borderRadius: 2, outline: crit ? `1.5px solid ${RED}` : r.key === regionId && t === step ? '1.5px solid #f5f5f5' : undefined, outlineOffset: crit ? -1.5 : -1.5 }}
                   >
                     {crit && <svg className="absolute inset-0" width="100%" height="100%" aria-hidden="true"><rect width="100%" height="100%" fill="url(#pat-grade)" /></svg>}
-                    <span className="num relative text-[12px] font-semibold" style={{ color: v > 55 ? '#0a0a0a' : '#f5f5f5' }}>{v}</span>
+                    <span className="num relative text-[12px] font-semibold" style={{ color: v >= 40 ? '#0a0e14' : '#f5f5f5' }}>{v}</span>
                   </button>
                 );
               })}
             </div>
           ))}
           <span />
-          {Array.from({ length: STEP_COUNT }, (_, t) => <span key={t} className="num text-center text-[10px] leading-[14px]" style={{ color: t === step ? '#f5f5f5' : '#6e6e6e' }}>{stepClock(t)}</span>)}
+          {Array.from({ length: STEP_COUNT }, (_, t) => <span key={t} className="num text-center text-[10px] leading-[14px]" style={{ color: t === step ? '#f5f5f5' : '#6f8094' }}>{stepClock(t)}</span>)}
         </div>
       </div>
       <div className="flex flex-none items-center justify-end gap-1.5 px-4 pb-2 text-[10px] text-t2">
         Menor
-        {[0, 25, 50, 75, 100].map((v) => <span key={v} className="block h-[8px] w-[12px]" style={{ background: shade(v), border: '1px solid #3a3a3a', borderRadius: 1 }} />)}
+        {[0, 25, 50, 75, 100].map((v) => <span key={v} className="block h-[8px] w-[12px]" style={{ background: shade(v), border: '1px solid #3a4859', borderRadius: 1 }} />)}
         Maior
       </div>
     </Card>

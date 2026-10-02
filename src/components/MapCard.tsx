@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEven
 import { mapData, fitTo, pathOfLine, pathOfMulti, toPx } from '../data/mapData';
 import { REGIONS } from '../data/regions';
 import { OCCURRENCE_ICONS_CALOR, OCCURRENCE_ICONS_CHUVA, Icon, type IconName } from './icons';
-import { LEVELS, RED, levelPatternId, levelTint } from '../lib/levels';
+import { LEVELS, levelColor, levelPatternId, levelTint } from '../lib/levels';
 import { useSize } from '../lib/hooks';
 import { fmt } from '../lib/format';
 import type { RegionId } from '../engine/types';
@@ -22,6 +22,8 @@ const LAYERS: Array<{ k: LayerKey; label: string; needs?: 'vias' | 'corregos' }>
   { k: 'zonas', label: 'Zonas' }, { k: 'vias', label: 'Vias', needs: 'vias' }, { k: 'corregos', label: 'Córregos', needs: 'corregos' },
   { k: 'ocorrencias', label: 'Ocorrências' }, { k: 'equipes', label: 'Equipes' }, { k: 'infra', label: 'Infraestrutura' }, { k: 'refugios', label: 'Refúgios' }
 ];
+/** Cor de identidade de cada região (abas Ocorrências e Recursos), para separar as regiões no mapa. */
+const REGION_HUE: Record<RegionId, string> = { norte: '#4c9aff', centro: '#a78bfa', leste: '#2dd4bf', sul: '#f2a65a' };
 const INFRA_KINDS: Record<RegionId, IconName[]> = { norte: ['health', 'school'], centro: ['health'], leste: [], sul: ['school'] };
 
 interface View { k: number; x: number; y: number }
@@ -89,12 +91,33 @@ export function MapCard() {
   const S = (p: Pt): Pt => { const q = toPx(p, fit); return [q[0] * view.k + view.x, q[1] * view.k + view.y]; };
 
   const urbanPath = useMemo(() => pathOfMulti(mapData.urban, fit), [fit]);
+  const contextPath = useMemo(() => pathOfMulti(mapData.context, fit), [fit]);
   const zonePaths = useMemo(() => Object.fromEntries(REGIONS.map((r) => [r.id, pathOfMulti(mapData.zones[r.id].multi, fit)])) as Record<RegionId, string>, [fit]);
   const roadPaths = useMemo(() => ({
-    main: mapData.roads.filter((r) => r.main).map((r) => pathOfLine(r.pts, fit)).join(''),
-    sec: mapData.roads.filter((r) => !r.main).map((r) => pathOfLine(r.pts, fit)).join('')
+    main: mapData.roads.filter((r) => r.classe === 'principal').map((r) => pathOfLine(r.pts, fit)).join(''),
+    sec: mapData.roads.filter((r) => r.classe === 'secundaria').map((r) => pathOfLine(r.pts, fit)).join(''),
+    ter: mapData.roads.filter((r) => r.classe === 'terciaria').map((r) => pathOfLine(r.pts, fit)).join('')
   }), [fit]);
-  const streamPaths = useMemo(() => mapData.streams.map((s) => ({ name: s.name, d: pathOfLine(s.pts, fit) })), [fit]);
+  /* nomes das avenidas principais: a maior linha de cada nome, no máximo 9 */
+  const roadLabels = useMemo(() => {
+    const best = new Map<string, { len: number; pts: Pt[] }>();
+    for (const r of mapData.roads) {
+      if (!r.name || r.classe === 'terciaria') continue;
+      let len = 0;
+      for (let i = 1; i < r.pts.length; i++) len += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+      const cur = best.get(r.name);
+      if (!cur || len > cur.len) best.set(r.name, { len, pts: r.pts });
+    }
+    return [...best.entries()].sort((a, b) => b[1].len - a[1].len).slice(0, 9).map(([name, v]) => {
+      // orienta o texto da esquerda para a direita
+      const pts = v.pts[0][0] <= v.pts[v.pts.length - 1][0] ? v.pts : [...v.pts].reverse();
+      return { name, d: pathOfLine(pts, fit) };
+    });
+  }, [fit]);
+  const railPath = useMemo(() => mapData.rails.map((r) => pathOfLine(r, fit)).join(''), [fit]);
+  const parkPath = useMemo(() => pathOfMulti(mapData.parks, fit), [fit]);
+  const waterPath = useMemo(() => pathOfMulti(mapData.water, fit), [fit]);
+  const streamPaths = useMemo(() => mapData.streams.map((s) => ({ name: s.name, river: s.river, d: pathOfLine(s.pts, fit) })), [fit]);
 
   const hasRoads = mapData.roads.length > 0;
   const hasStreams = mapData.streams.length > 0;
@@ -113,28 +136,33 @@ export function MapCard() {
   const labelOf = (id: RegionId) => S(mapData.zones[id].label);
 
   return (
-    <Card className="flex min-h-0 flex-col" label="Mapa de pressão" style={{ flex: '56 1 0%' }}>
+    <Card className="flex min-h-0 flex-col" label="Mapa de pressão" style={{ flex: '60 1 0%' }}>
       <MapHeader />
       <div className="flex h-9 flex-none items-center justify-between border-b border-line px-3">
-        <span className="t-micro">Zonas da cidade · clique para selecionar</span>
+        <span className="t-micro">Município de Franca · clique em uma região</span>
         <div className="seg" role="tablist" aria-label="Camada do mapa">
           {TABS.map((t) => <button key={t.k} role="tab" aria-selected={mapTab === t.k} onClick={() => setMapTab(t.k)} style={{ height: 22, padding: '0 10px', fontSize: 11 }}>{t.label}</button>)}
         </div>
       </div>
-      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden" style={{ background: '#0c0c0c' }}>
+      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden" style={{ background: '#0b1118' }}>
         <svg
           ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Mapa de Franca com as quatro zonas"
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
           style={{ display: 'block', touchAction: 'none', cursor: view.k > 1 ? 'grab' : 'default' }}
         >
           <defs>
-            <pattern id="pat-fundo" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="0.8" fill="#222" /></pattern>
+            <pattern id="pat-fundo" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="0.8" fill="#1f2a38" /></pattern>
           </defs>
           <rect width={W} height={H} fill="url(#pat-fundo)" />
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-            <path d={urbanPath} fill="#141414" stroke="#2e2e2e" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            {layers.vias && roadPaths.sec && <path d={roadPaths.sec} fill="none" stroke="#2e2e2e" strokeWidth="0.75" vectorEffect="non-scaling-stroke" />}
-            {layers.vias && roadPaths.main && <path d={roadPaths.main} fill="none" stroke="#3a3a3a" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />}
+ {contextPath && <path d={contextPath} fill="#0e151e" stroke="#2d3a4a" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+            <path d={urbanPath} fill="#182231" stroke="#35465c" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            {parkPath && <path d={parkPath} fill="var(--verde-parque)" stroke="#2a5a43" strokeWidth="0.6" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+            {waterPath && <path d={waterPath} fill="#164a73" stroke="var(--agua)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+            {layers.vias && railPath && <path d={railPath} fill="none" stroke="#51647c" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />}
+            {layers.vias && roadPaths.ter && <path d={roadPaths.ter} fill="none" stroke="#2c3b4f" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />}
+            {layers.vias && roadPaths.sec && <path d={roadPaths.sec} fill="none" stroke="#4a5f7a" strokeWidth="1" vectorEffect="non-scaling-stroke" />}
+            {layers.vias && roadPaths.main && <path d={roadPaths.main} fill="none" stroke="#8aa4c4" strokeWidth="1.7" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
 
             {showZones && order.map((r) => {
               const p = model.cur.regions[r.id];
@@ -149,9 +177,9 @@ export function MapCard() {
                     aria-pressed={isSel}
                     vectorEffect="non-scaling-stroke"
                     style={{
-                      fill: pressure ? levelTint(p.level) : '#141414',
-                      stroke: pressure ? (p.level === 3 ? RED : '#6e6e6e') : '#3a3a3a',
-                      strokeWidth: 1.5
+                      fill: pressure ? levelTint(p.level, p.level === 3 ? 40 : 30) : `color-mix(in srgb, ${REGION_HUE[r.id]} 20%, transparent)`,
+                      stroke: pressure ? levelColor(p.level) : REGION_HUE[r.id],
+                      strokeWidth: 2
                     }}
                     onClick={() => { if (!suppressClick.current) selectRegion(r.id); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRegion(r.id); } }}
@@ -163,23 +191,28 @@ export function MapCard() {
                   />
                   {pressure && pat && <path d={d} fill={`url(#${pat})`} stroke="none" pointerEvents="none" />}
                   {pressure && p.level === 3 && <path d={d} fill="none" stroke="var(--nivel-critico)" strokeWidth="3.5" vectorEffect="non-scaling-stroke" className="pulse-border" pointerEvents="none" />}
-                  {isSel && <path d={d} fill="none" stroke="#f5f5f5" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+                  {isSel && <path d={d} fill="none" stroke="#f5f5f5" strokeWidth="3" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
                 </g>
               );
             })}
 
             {layers.corregos && streamPaths.map((s, i) => (
               <g key={i} pointerEvents="none">
-                <path id={`corrego-${i}`} d={s.d} fill="none" stroke="#9a9a9a" strokeWidth="1.6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                {s.name && <text fontSize={10 / view.k} fill="#bdbdbd" fontStyle="italic"><textPath href={`#corrego-${i}`} startOffset="8%">{s.name}</textPath></text>}
+                <path id={`corrego-${i}`} d={s.d} fill="none" stroke="var(--agua)" strokeWidth={s.river ? 2.2 : 1.3} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                {s.name && view.k >= 1.6 && <text fontSize={10 / view.k} fill="#9ed2f7" fontStyle="italic"><textPath href={`#corrego-${i}`} startOffset="8%">{s.name}</textPath></text>}
+              </g>
+            ))}
+            {layers.vias && view.k >= 1.7 && roadLabels.map((r, i) => (
+              <g key={r.name} pointerEvents="none">
+                <path id={`via-${i}`} d={r.d} fill="none" stroke="none" />
+                <text fontSize={9 / view.k} fill="#b9cce2" stroke="#182231" strokeWidth={2.6 / view.k} paintOrder="stroke"><textPath href={`#via-${i}`} startOffset="35%">{r.name}</textPath></text>
               </g>
             ))}
           </g>
 
           {/* camada em tela (não escala com o zoom) */}
           <g pointerEvents="none" fontFamily="var(--font-sans)">
-            {pressure && <text x={S(mapData.cityCenter)[0]} y={S(mapData.cityCenter)[1] + 52} textAnchor="middle" fontSize="26" fontWeight="500" letterSpacing="6" fill="#6e6e6e" opacity="0.7">Franca</text>}
-            {view.k >= 1.8 && mapData.hoods.map((h) => { const q = S(h.p); return <text key={h.name} x={q[0]} y={q[1]} textAnchor="middle" fontSize="9" fill="#8a8a8a">{h.name}</text>; })}
+                        {view.k >= 1.8 && mapData.hoods.map((h) => { const q = S(h.p); return <text key={h.name} x={q[0]} y={q[1]} textAnchor="middle" fontSize="9" fill="#8a8a8a">{h.name}</text>; })}
 
             {REGIONS.map((r) => {
               if (!showZones && mapTab === 'pressao') return null;
@@ -190,37 +223,37 @@ export function MapCard() {
               const showTeams = layers.equipes && mapTab !== 'recursos';
               return (
                 <g key={r.id}>
-                  {showDots && z.dots.slice(0, p.active).map((d, i) => { const q = S(d); return <circle key={i} cx={q[0]} cy={q[1]} r="2.2" fill="#f5f5f5" />; })}
+                  {showDots && z.dots.slice(0, p.active).map((d, i) => { const q = S(d); return <circle key={i} cx={q[0]} cy={q[1]} r="2.6" fill="#ffd166" stroke="#0a0e14" strokeWidth="0.8" />; })}
                   {layers.infra && INFRA_KINDS[r.id].map((kind, i) => {
                     const q = z.infra[i] ? S(z.infra[i]) : null;
-                    return q ? <g key={i} transform={`translate(${q[0] - 7} ${q[1] - 7})`}><circle cx="7" cy="7" r="9" fill="#0c0c0c" stroke="#3a3a3a" /><g color="#a3a3a3"><Icon name={kind} size={14} /></g></g> : null;
+                    return q ? <g key={i} transform={`translate(${q[0] - 7} ${q[1] - 7})`}><circle cx="7" cy="7" r="9" fill="#0b1118" stroke="#3a4859" /><g color="#9fb0c3"><Icon name={kind} size={14} /></g></g> : null;
                   })}
-                  {layers.refugios && z.refuge && (() => { const q = S(z.refuge!); return <g transform={`translate(${q[0] - 7} ${q[1] - 7})`}><circle cx="7" cy="7" r="9" fill="#0c0c0c" stroke="#a3a3a3" strokeDasharray="2 2" /><g color="#f5f5f5"><Icon name="house" size={14} /></g></g>; })()}
+                  {layers.refugios && z.refuge && (() => { const q = S(z.refuge!); return <g transform={`translate(${q[0] - 7} ${q[1] - 7})`}><circle cx="7" cy="7" r="9" fill="#0b1118" stroke="#9fb0c3" strokeDasharray="2 2" /><g color="#f5f5f5"><Icon name="house" size={14} /></g></g>; })()}
 
                   {mapTab === 'pressao' && (
                     <>
-                      <text x={c[0]} y={c[1] - 11} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0a0a" strokeWidth="3" paintOrder="stroke">{r.name}</text>
-                      <rect x={c[0] - 28} y={c[1] - 6} width="56" height="19" rx="9.5" fill="#f5f5f5" />
-                      <g transform={`translate(${c[0] - 21} ${c[1] - 1.5})`}><LevelIcon level={p.level} size={10} onWhite /></g>
-                      <text x={c[0] + 12} y={c[1] + 8} textAnchor="middle" fontSize="12" fontWeight="600" fill="#0a0a0a" className="num">{p.score}</text>
+                      <text x={c[0]} y={c[1] - 11} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0e14" strokeWidth="3" paintOrder="stroke">{r.name}</text>
+                      <rect x={c[0] - 28} y={c[1] - 6} width="56" height="19" rx="9.5" fill={levelColor(p.level)} stroke="#0a0e14" strokeWidth="1.5" />
+                      <g transform={`translate(${c[0] - 21} ${c[1] - 1.5})`}><LevelIcon level={p.level} size={10} color="#0a0e14" /></g>
+                      <text x={c[0] + 12} y={c[1] + 8} textAnchor="middle" fontSize="12" fontWeight="700" fill="#0a0e14" className="num">{p.score}</text>
                     </>
                   )}
                   {showTeams && Array.from({ length: p.teamsTotal }, (_, i) => (
-                    <rect key={i} x={c[0] - (p.teamsTotal * 11 - 3) / 2 + i * 11} y={c[1] + (mapTab === 'pressao' ? 17 : 19)} width="8" height="8" fill={i < p.teamsTotal - p.teamsFree ? '#f5f5f5' : '#0c0c0c'} stroke="#f5f5f5" strokeWidth="1.2" />
+                    <rect key={i} x={c[0] - (p.teamsTotal * 11 - 3) / 2 + i * 11} y={c[1] + (mapTab === 'pressao' ? 17 : 19)} width="8" height="8" fill={i < p.teamsTotal - p.teamsFree ? '#9cc7ff' : '#0b1118'} stroke="#9cc7ff" strokeWidth="1.2" />
                   ))}
                   {mapTab === 'ocorrencias' && (
                     <>
-                      <text x={c[0]} y={c[1] - 4} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0a0a" strokeWidth="3" paintOrder="stroke">{r.name}</text>
-                      <text x={c[0]} y={c[1] + 11} textAnchor="middle" fontSize="11" fill="#a3a3a3" stroke="#0a0a0a" strokeWidth="3" paintOrder="stroke" className="num">{p.active} {p.active === 1 ? 'ocorrência' : 'ocorrências'}</text>
+                      <text x={c[0]} y={c[1] - 4} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0e14" strokeWidth="3" paintOrder="stroke">{r.name}</text>
+                      <text x={c[0]} y={c[1] + 11} textAnchor="middle" fontSize="11" fill="#9fb0c3" stroke="#0a0e14" strokeWidth="3" paintOrder="stroke" className="num">{p.active} {p.active === 1 ? 'ocorrência' : 'ocorrências'}</text>
                     </>
                   )}
                   {mapTab === 'recursos' && (
                     <>
-                      <text x={c[0]} y={c[1] - 6} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0a0a" strokeWidth="3" paintOrder="stroke">{r.name}</text>
+                      <text x={c[0]} y={c[1] - 6} textAnchor="middle" fontSize="11" fontWeight="500" fill="#f5f5f5" stroke="#0a0e14" strokeWidth="3" paintOrder="stroke">{r.name}</text>
                       {Array.from({ length: p.teamsTotal }, (_, i) => (
-                        <rect key={i} x={c[0] - (p.teamsTotal * 17 - 3) / 2 + i * 17} y={c[1] + 1} width="14" height="14" fill={i < p.teamsTotal - p.teamsFree ? '#f5f5f5' : '#0c0c0c'} stroke="#f5f5f5" strokeWidth="1.5" />
+                        <rect key={i} x={c[0] - (p.teamsTotal * 17 - 3) / 2 + i * 17} y={c[1] + 1} width="14" height="14" fill={i < p.teamsTotal - p.teamsFree ? '#9cc7ff' : '#0b1118'} stroke="#9cc7ff" strokeWidth="1.5" />
                       ))}
-                      <text x={c[0]} y={c[1] + 29} textAnchor="middle" fontSize="11" fill="#a3a3a3" stroke="#0a0a0a" strokeWidth="3" paintOrder="stroke" className="num">{p.teamsFree} de {p.teamsTotal} livres</text>
+                      <text x={c[0]} y={c[1] + 29} textAnchor="middle" fontSize="11" fill="#9fb0c3" stroke="#0a0e14" strokeWidth="3" paintOrder="stroke" className="num">{p.teamsFree} de {p.teamsTotal} livres</text>
                     </>
                   )}
                 </g>
@@ -253,10 +286,10 @@ export function MapCard() {
             <button aria-label="Camadas do mapa" aria-expanded={layersOpen} onClick={() => setLayersOpen((v) => !v)} className="flex h-7 w-7 items-center justify-center border border-line2 bg-s1 text-t1 hover:bg-s3" style={{ borderRadius: 2 }}><Icon name="layers" size={14} /></button>
             {layersOpen && (
               <div role="menu" aria-label="Camadas" className="absolute left-[34px] top-0 z-30 w-[170px] border border-line2 bg-s2 p-1.5">
-                {LAYERS.map((l) => {
-                  const off = (l.needs === 'vias' && !hasRoads) || (l.needs === 'corregos' && !hasStreams);
+                {LAYERS.filter((l) => !((l.needs === 'vias' && !hasRoads) || (l.needs === 'corregos' && !hasStreams))).map((l) => {
+                  const off = false;
                   return (
-                    <button key={l.k} role="menuitemcheckbox" aria-checked={layers[l.k]} disabled={off} onClick={() => toggleLayer(l.k)} title={off ? 'Sem dados: rode scripts/fetch-osm.mjs' : undefined}
+                    <button key={l.k} role="menuitemcheckbox" aria-checked={layers[l.k]} disabled={off} onClick={() => toggleLayer(l.k)}
                       className="flex w-full items-center gap-2 px-1.5 py-1 text-left text-[12px] hover:bg-s3 disabled:opacity-40">
                       <span className="flex h-3.5 w-3.5 items-center justify-center border border-line2">{layers[l.k] && !off && <Icon name="check" size={10} />}</span>{l.label}
                     </button>
@@ -273,7 +306,7 @@ export function MapCard() {
             {LEVELS.map((l, i) => (
               <li key={l.key} className="flex items-center gap-1.5">
                 <LevelIcon level={i as 0 | 1 | 2 | 3} size={9} />
-                <svg width="16" height="9" aria-hidden="true"><rect x="0.5" y="0.5" width="15" height="8" fill="#141414" stroke="#6e6e6e" />{LEGEND_PATTERN[i] && <rect x="0.5" y="0.5" width="15" height="8" fill={`url(#${LEGEND_PATTERN[i]})`} />}</svg>
+                <svg width="16" height="9" aria-hidden="true"><rect x="0.5" y="0.5" width="15" height="8" fill={levelTint(i as 0 | 1 | 2 | 3, i === 3 ? 40 : 30)} stroke={levelColor(i as 0 | 1 | 2 | 3)} />{LEGEND_PATTERN[i] && <rect x="0.5" y="0.5" width="15" height="8" fill={`url(#${LEGEND_PATTERN[i]})`} />}</svg>
                 <span className="t-level w-[48px] text-[9.5px]">{l.name}</span>
                 <span className="num text-[9.5px] text-t2">{l.range}</span>
               </li>
@@ -294,7 +327,7 @@ export function MapCard() {
         <div className="pointer-events-none absolute bottom-1.5 right-2 flex flex-col items-end text-right text-[10px] leading-3 text-t2">
           <span>Limites das zonas aproximados, não oficiais.</span>
           {(layers.infra || layers.refugios) && <span>Ícones de infraestrutura e refúgios: ilustrativos.</span>}
-          <span>{mapData.approximate ? 'Geometria aproximada, sem dados do OpenStreetMap.' : '© OpenStreetMap contributors'}</span>
+          <span>{mapData.approximate ? 'Geometria aproximada.' : `${mapData.attribution}${hasRoads || hasStreams ? '' : ' · sem vias e córregos'}`}</span>
         </div>
 
         {/* tooltip da zona */}
@@ -314,14 +347,14 @@ export function MapCard() {
   );
 }
 
-function Mini({ label, value, unit, delta, deltaText }: { label: string; value: string; unit?: string; delta: number | null; deltaText: string }) {
+function Mini({ label, value, unit, delta, deltaText, upIsBad = true }: { label: string; value: string; unit?: string; delta: number | null; deltaText: string; upIsBad?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col">
       <span className="t-micro">{label}</span>
       <span className="flex items-baseline gap-1.5">
         <span className="num text-[15px] font-semibold leading-5">{value}</span>
         {unit && <span className="text-[10.5px] text-t2">{unit}</span>}
-        <span className="num flex items-center gap-0.5 text-[11px]" style={{ color: deltaColor(delta) }}>
+        <span className="num flex items-center gap-0.5 text-[11px]" style={{ color: deltaColor(delta, upIsBad) }}>
           {delta !== null && <Arrow delta={delta} size={10} />}{delta === null ? '—' : `(${deltaText})`}
         </span>
       </span>
@@ -353,7 +386,7 @@ function MapHeader() {
       <div className="flex flex-1 items-center justify-center gap-6">
         <Mini label={chuva ? 'Chuva' : 'Índice de calor'} value={fmt(w, 1)} unit={chuva ? 'mm/h' : '°C'} delta={dW} deltaText={signed(dW ?? 0, 1)} />
         <Mini label={chuva ? 'Ocorrências ativas' : 'Atendimentos ativos'} value={fmt(model.totals.active)} delta={dAct} deltaText={signed(dAct ?? 0)} />
-        <Mini label={chuva ? 'Equipes livres' : 'Equipes e refúgios'} value={`${model.totals.free} de ${model.totals.teams}`} delta={dFree} deltaText={signed(dFree ?? 0)} />
+        <Mini label={chuva ? 'Equipes livres' : 'Equipes e refúgios'} value={`${model.totals.free} de ${model.totals.teams}`} delta={dFree} deltaText={signed(dFree ?? 0)} upIsBad={false} />
       </div>
       <div className="flex flex-none flex-col items-end" style={{ color: deltaColor(dCity) }}>
         <span className="num flex items-center gap-1 text-[14px] font-semibold">{dCity === null ? '—' : <><Arrow delta={dCity} size={13} />{Math.abs(dCity)} pts</>}</span>

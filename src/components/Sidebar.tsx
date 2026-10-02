@@ -31,7 +31,7 @@ export function Sidebar() {
       >
         <button
           aria-label={it.label} aria-current={active ? 'page' : undefined} aria-disabled={!it.on || undefined} onClick={onClick}
-          className={`flex h-9 w-9 items-center justify-center ${!it.on ? 'cursor-not-allowed text-t3' : active ? 'bg-s3 text-t1' : 'text-t2 hover:bg-s2 hover:text-t1'}`}
+          className={`flex h-9 w-9 items-center justify-center ${!it.on ? 'cursor-not-allowed text-t3' : active ? 'bg-[#14304f] text-[#9cc7ff]' : 'text-t2 hover:bg-s2 hover:text-t1'}`}
           style={{ borderRadius: 2, transition: 'background 200ms ease-out, color 200ms ease-out' }}
         >
           <Icon name={it.icon} size={20} />

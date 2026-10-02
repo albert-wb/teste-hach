@@ -29,7 +29,7 @@ function useFrameScale(): number {
 function Skeleton() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" aria-busy="true" aria-label="Carregando cenário">
-      <div className="flex gap-3" style={{ height: 400 }}><div className="skeleton" style={{ flex: 56 }} /><div className="skeleton" style={{ flex: 44 }} /></div>
+      <div className="flex gap-3" style={{ height: 440 }}><div className="skeleton" style={{ flex: 60 }} /><div className="skeleton" style={{ flex: 40 }} /></div>
       <div className="grid min-h-0 flex-1 grid-cols-4 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" />)}</div>
     </div>
   );
@@ -42,7 +42,7 @@ function Dashboard() {
       <h1 className="sr-only">StormOps Franca: painel de operações da Defesa Civil</h1>
       {loading ? <Skeleton /> : (
         <>
-          <div className="flex min-h-0 gap-3" style={{ height: 400 }}>
+          <div className="flex min-h-0 gap-3" style={{ height: 440 }}>
             <MapCard />
             <SelectedRegion />
           </div>
