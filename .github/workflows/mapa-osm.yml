@@ -1,0 +1,40 @@
+name: Baixar mapa do OpenStreetMap
+
+# O GitHub Actions tem acesso à internet; baixa os dados brutos de Franca (SP) do OpenStreetMap
+# e os guarda na branch `dados-osm` (pasta data-raw/). Depois, localmente: `npm run build-map`.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/osm-fetch-raw.mjs'
+      - '.github/workflows/mapa-osm.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  baixar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/osm-fetch-raw.mjs "$RUNNER_TEMP/data-raw"
+      - name: Guardar na branch dados-osm
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin dados-osm >/dev/null; then
+            git fetch --depth=1 origin dados-osm
+            git checkout -B dados-osm FETCH_HEAD
+          else
+            git checkout --orphan dados-osm
+            git rm -rfq .
+          fi
+          rm -rf data-raw && mkdir data-raw
+          cp "$RUNNER_TEMP"/data-raw/*.json data-raw/
+          git add data-raw
+          git commit -m "dados brutos do OpenStreetMap ($(date -u +%Y-%m-%d))"
+          git push origin dados-osm
