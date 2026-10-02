@@ -10,9 +10,12 @@
  * Dados © OpenStreetMap contributors (ODbL) — https://www.openstreetmap.org/copyright
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { simplifyRing } from './geo-utils.mjs';
 
-const OUT = new URL(`file://${process.cwd()}/${process.argv[2] ?? 'data-raw'}/`);
+const OUT = pathToFileURL(resolve(process.argv[2] ?? 'data-raw') + '/');
+const TIMEOUT_MS = 170_000; // por tentativa
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -28,25 +31,27 @@ const IN = `(poly:"${POLY}")`;
 
 async function overpass(name, query) {
   let last;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     for (const endpoint of ENDPOINTS) {
       try {
+        const t0 = Date.now();
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'data=' + encodeURIComponent(query)
+          body: 'data=' + encodeURIComponent(query),
+          signal: AbortSignal.timeout(TIMEOUT_MS)
         });
         if (res.ok) {
           const json = await res.json();
-          console.log(`  ${name}: ${json.elements?.length ?? 0} elementos (${endpoint})`);
+          console.log(`  ${name}: ${json.elements?.length ?? 0} elementos em ${((Date.now() - t0) / 1000).toFixed(0)} s (${endpoint})`);
           return json;
         }
-        last = new Error(`${endpoint} respondeu ${res.status}`);
+        last = new Error(`${endpoint} respondeu ${res.status} ${(await res.text()).slice(0, 160).replace(/\s+/g, ' ')}`);
       } catch (e) { last = e; }
       console.warn(`  ${name}: falhou (${last.message}); tentando de novo…`);
-      await sleep(4000);
+      await sleep(3000);
     }
-    await sleep(10000 * (attempt + 1));
+    await sleep(8000 * (attempt + 1));
   }
   throw last;
 }

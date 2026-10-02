@@ -15,14 +15,19 @@ permissions:
 jobs:
   baixar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/osm-fetch-raw.mjs "$RUNNER_TEMP/data-raw"
+      - name: Baixar do Overpass
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/data-raw"
+          node scripts/osm-fetch-raw.mjs "$RUNNER_TEMP/data-raw" 2>&1 | tee "$RUNNER_TEMP/data-raw/log.txt"
       - name: Guardar na branch dados-osm
+        if: always()
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
@@ -34,7 +39,7 @@ jobs:
             git rm -rfq .
           fi
           rm -rf data-raw && mkdir data-raw
-          cp "$RUNNER_TEMP"/data-raw/*.json data-raw/
+          cp "$RUNNER_TEMP"/data-raw/* data-raw/
           git add data-raw
           git commit -m "dados brutos do OpenStreetMap ($(date -u +%Y-%m-%d))"
           git push origin dados-osm
